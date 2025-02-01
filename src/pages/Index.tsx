@@ -17,6 +17,7 @@ const Index = () => {
 
   useEffect(() => {
     if (isKeySet) {
+      console.log("API Key set, initializing OpenAI");
       try {
         initializeOpenAI(apiKey);
       } catch (error) {
@@ -31,12 +32,14 @@ const Index = () => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
+        console.log("Setting up speech recognition");
         recognitionRef.current = new SpeechRecognition();
         recognitionRef.current.continuous = false;
         recognitionRef.current.interimResults = false;
 
         recognitionRef.current.onresult = async (event: SpeechRecognitionEvent) => {
           const text = event.results[0][0].transcript;
+          console.log("Speech recognized:", text);
           handleNewMessage(text, true);
         };
 
@@ -47,6 +50,7 @@ const Index = () => {
         };
 
         recognitionRef.current.onend = () => {
+          console.log("Speech recognition ended");
           setIsRecording(false);
         };
       }
@@ -62,33 +66,43 @@ const Index = () => {
   const handleApiKeySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (apiKey.trim()) {
+      console.log("Setting API key");
       setIsKeySet(true);
     }
   };
 
   const handleNewMessage = async (text: string, isUser: boolean) => {
+    console.log("Handling new message:", { text, isUser });
     setMessages(prev => [...prev, { text, isUser }]);
     
     if (isUser && apiKey) {
       try {
         const response = await generateResponse(apiKey, text);
+        console.log("Got response:", response);
+        
         setMessages(prev => [...prev, { text: response, isUser: false }]);
         
         const speech = new SpeechSynthesisUtterance(response);
         window.speechSynthesis.speak(speech);
       } catch (error) {
+        console.error('Error in handleNewMessage:', error);
         toast.error('Failed to generate response');
       }
     }
   };
 
   const toggleRecording = async () => {
-    if (!isKeySet) return;
+    if (!isKeySet) {
+      toast.error('Please set your API key first');
+      return;
+    }
     
     if (!recognitionRef.current) {
       toast.error('Speech recognition is not supported in your browser');
       return;
     }
+
+    console.log("Toggling recording:", !isRecording);
 
     if (isRecording) {
       recognitionRef.current.stop();
@@ -101,6 +115,7 @@ const Index = () => {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         setAudioStream(stream);
         recognitionRef.current.start();
+        toast.success('Listening...');
       } catch (error) {
         console.error('Error accessing microphone:', error);
         toast.error('Failed to access microphone');
