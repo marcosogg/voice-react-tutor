@@ -80,10 +80,12 @@ const Index = () => {
         const response = await generateResponse(apiKey, text);
         console.log("Got response:", response);
         
-        setMessages(prev => [...prev, { text: response, isUser: false }]);
-        
-        const speech = new SpeechSynthesisUtterance(response);
-        window.speechSynthesis.speak(speech);
+        if (response) {
+          setMessages(prev => [...prev, { text: response, isUser: false }]);
+          
+          const speech = new SpeechSynthesisUtterance(response);
+          window.speechSynthesis.speak(speech);
+        }
       } catch (error) {
         console.error('Error in handleNewMessage:', error);
         toast.error('Failed to generate response');

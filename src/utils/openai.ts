@@ -11,7 +11,7 @@ export const initializeOpenAI = (apiKey: string) => {
 };
 
 export const generateResponse = async (apiKey: string, text: string) => {
-  console.log("Generating response for:", text);
+  console.log("Starting OpenAI request for:", text);
   
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -22,7 +22,16 @@ export const generateResponse = async (apiKey: string, text: string) => {
       },
       body: JSON.stringify({
         model: 'gpt-4',
-        messages: [{ role: 'user', content: text }],
+        messages: [
+          { 
+            role: 'system', 
+            content: 'You are a helpful voice assistant. Keep your responses concise and natural, as if speaking in conversation.' 
+          },
+          { 
+            role: 'user', 
+            content: text 
+          }
+        ],
         stream: true
       })
     });
@@ -33,14 +42,13 @@ export const generateResponse = async (apiKey: string, text: string) => {
       throw new Error(`API error: ${response.status}`);
     }
 
+    console.log("Got response from OpenAI, starting to read stream");
     const reader = response.body?.getReader();
     let responseText = '';
 
     if (!reader) {
       throw new Error('No response reader available');
     }
-
-    console.log("Starting to read stream");
 
     while (true) {
       const { done, value } = await reader.read();
@@ -50,9 +58,11 @@ export const generateResponse = async (apiKey: string, text: string) => {
         break;
       }
 
+      // Convert the chunk to text
       const chunk = new TextDecoder().decode(value);
-      const lines = chunk.split('\n');
+      console.log("Received chunk:", chunk);
       
+      const lines = chunk.split('\n');
       for (const line of lines) {
         if (line.startsWith('data: ')) {
           if (line === 'data: [DONE]') continue;
@@ -62,10 +72,10 @@ export const generateResponse = async (apiKey: string, text: string) => {
             const content = jsonData.choices[0]?.delta?.content;
             if (content) {
               responseText += content;
-              console.log("Received content chunk:", content);
+              console.log("Accumulated response:", responseText);
             }
           } catch (error) {
-            console.error('Error parsing JSON:', error);
+            console.error('Error parsing JSON:', error, 'Line:', line);
           }
         }
       }
