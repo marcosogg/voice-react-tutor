@@ -1,15 +1,32 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
+
+interface ChatConfig {
+  temperature: number;
+  candidateCount: number;
+}
+
+export interface ChatMessage {
+  text: string;
+  isUser: boolean;
+}
+
+const DEFAULT_CONFIG: ChatConfig = {
+  temperature: 0.9,
+  candidateCount: 1,
+};
 
 export const initializeGemini = (apiKey: string) => {
   const genAI = new GoogleGenerativeAI(apiKey);
-  return genAI.getGenerativeModel({ model: "gemini-pro" });
+  return genAI.getGenerativeModel({ 
+    model: "gemini-pro",
+    generationConfig: DEFAULT_CONFIG
+  });
 };
 
-export const generateResponse = async (model: any, message: string) => {
+export const generateResponse = async (model: GenerativeModel, message: string) => {
   try {
-    const result = await model.generateContent(message);
-    const response = await result.response;
-    return response.text();
+    const result = await model.generateContentStream(message);
+    return result;
   } catch (error) {
     console.error('Error generating response:', error);
     throw error;

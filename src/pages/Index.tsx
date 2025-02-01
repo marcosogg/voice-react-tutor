@@ -1,24 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Mic } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { initializeGemini, generateResponse } from "@/utils/gemini";
+import { initializeGemini, generateResponse, type ChatMessage } from "@/utils/gemini";
 import { toast } from "sonner";
-
-interface Message {
-  text: string;
-  isUser: boolean;
-}
 
 const Index = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [apiKey, setApiKey] = useState<string>("");
   const [isKeySet, setIsKeySet] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const modelRef = useRef<any>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isKeySet) {
@@ -58,6 +53,12 @@ const Index = () => {
     }
   }, []);
 
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }, [messages]);
+
   const handleApiKeySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (apiKey.trim()) {
@@ -70,11 +71,25 @@ const Index = () => {
     
     if (isUser && modelRef.current) {
       try {
-        const response = await generateResponse(modelRef.current, text);
-        setMessages(prev => [...prev, { text: response, isUser: false }]);
+        const stream = await generateResponse(modelRef.current, text);
+        let fullResponse = '';
         
-        // Convert response to speech
-        const speech = new SpeechSynthesisUtterance(response);
+        for await (const chunk of stream) {
+          fullResponse += chunk.text();
+          setMessages(prev => {
+            const newMessages = [...prev];
+            // Update or add AI response
+            if (prev[prev.length - 1].isUser) {
+              newMessages.push({ text: fullResponse, isUser: false });
+            } else {
+              newMessages[newMessages.length - 1] = { text: fullResponse, isUser: false };
+            }
+            return newMessages;
+          });
+        }
+
+        // Convert final response to speech
+        const speech = new SpeechSynthesisUtterance(fullResponse);
         window.speechSynthesis.speak(speech);
       } catch (error) {
         toast.error('Failed to generate response');
@@ -104,12 +119,12 @@ const Index = () => {
         <Card className="w-full max-w-md p-6">
           <h2 className="mb-4 text-xl font-semibold">Enter Gemini API Key</h2>
           <form onSubmit={handleApiKeySubmit} className="space-y-4">
-            <Input
+            <input
               type="password"
               placeholder="Enter your Gemini API key"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              className="w-full"
+              className="w-full rounded-md border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
             />
             <Button type="submit" className="w-full">
               Set API Key
@@ -122,24 +137,28 @@ const Index = () => {
 
   return (
     <div className="flex h-screen flex-col bg-white">
-      <header className="h-16 flex items-center justify-center border-b shadow-sm bg-white">
-        <h1 className="text-xl font-semibold text-[#1F2937]">Voice Chat Assistant</h1>
+      <header className="flex h-16 items-center justify-center border-b bg-white shadow-sm">
+        <h1 className="text-xl font-semibold text-gray-900">Gemini Voice Chat</h1>
       </header>
 
       <main className="flex-1 p-4 bg-gray-50">
         <Card className="h-full">
-          <ScrollArea className="h-[calc(100vh-11rem)] px-4">
-            <div className="py-4 space-y-4">
+          <ScrollArea className="h-[calc(100vh-11rem)] px-4" ref={scrollAreaRef}>
+            <div className="space-y-4 py-4">
               {messages.map((message, index) => (
                 <div
                   key={index}
-                  className={`p-3 rounded-lg max-w-[80%] ${
-                    message.isUser
-                      ? 'ml-auto bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}
+                  className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
                 >
-                  {message.text}
+                  <div
+                    className={`max-w-[80%] rounded-lg p-3 ${
+                      message.isUser
+                        ? 'bg-gray-200 text-gray-900'
+                        : 'bg-blue-100 text-gray-900'
+                    }`}
+                  >
+                    {message.text}
+                  </div>
                 </div>
               ))}
               {messages.length === 0 && (
@@ -155,11 +174,13 @@ const Index = () => {
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2">
         <Button
           onClick={toggleRecording}
-          className={`h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all ${
-            isRecording ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 'bg-[#2563EB] hover:bg-[#2563EB]/90'
+          className={`h-12 w-12 rounded-full shadow-lg transition-all ${
+            isRecording 
+              ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
+              : 'bg-gray-200 hover:bg-gray-300'
           }`}
         >
-          <Mic className={`h-6 w-6 ${isRecording ? 'text-white animate-pulse' : 'text-white'}`} />
+          <Mic className={`h-6 w-6 ${isRecording ? 'text-white' : 'text-gray-700'}`} />
         </Button>
       </div>
     </div>
