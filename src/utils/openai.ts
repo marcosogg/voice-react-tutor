@@ -5,12 +5,7 @@ export type ChatMessage = {
   isUser: boolean;
 };
 
-export const initializeOpenAI = (apiKey: string) => {
-  console.log("Initializing OpenAI with API key");
-  return apiKey;
-};
-
-export const generateResponse = async (apiKey: string, text: string) => {
+export const generateResponse = async (apiKey: string, text: string): Promise<string> => {
   console.log("Starting OpenAI request for:", text);
   
   try {
@@ -31,61 +26,19 @@ export const generateResponse = async (apiKey: string, text: string) => {
             role: 'user', 
             content: text 
           }
-        ],
-        stream: true
+        ]
       })
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorData = await response.json();
       console.error('OpenAI API error:', errorData);
       throw new Error(`API error: ${response.status}`);
     }
 
-    console.log("Got response from OpenAI, starting to read stream");
-    const reader = response.body?.getReader();
-    let responseText = '';
+    const data = await response.json();
+    return data.choices[0].message.content;
 
-    if (!reader) {
-      throw new Error('No response reader available');
-    }
-
-    while (true) {
-      const { done, value } = await reader.read();
-      
-      if (done) {
-        console.log("Stream complete. Final response:", responseText);
-        break;
-      }
-
-      // Convert the chunk to text
-      const chunk = new TextDecoder().decode(value);
-      console.log("Received chunk:", chunk);
-      
-      const lines = chunk.split('\n');
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          if (line === 'data: [DONE]') continue;
-          
-          try {
-            const jsonData = JSON.parse(line.slice(6));
-            const content = jsonData.choices[0]?.delta?.content;
-            if (content) {
-              responseText += content;
-              console.log("Accumulated response:", responseText);
-            }
-          } catch (error) {
-            console.error('Error parsing JSON:', error, 'Line:', line);
-          }
-        }
-      }
-    }
-
-    if (!responseText.trim()) {
-      throw new Error('Empty response from API');
-    }
-
-    return responseText;
   } catch (error) {
     console.error('Error generating response:', error);
     toast.error('Failed to generate response: ' + (error as Error).message);

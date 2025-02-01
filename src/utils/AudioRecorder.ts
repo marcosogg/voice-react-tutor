@@ -2,9 +2,9 @@ export class AudioRecorder {
   private context: AudioContext | null = null;
   private processor: ScriptProcessorNode | null = null;
   private stream: MediaStream | null = null;
-  private onAudioData: (data: Float32Array) => void;
+  private onAudioData: (text: string) => void;
 
-  constructor(onAudioData: (data: Float32Array) => void) {
+  constructor(onAudioData: (text: string) => void) {
     this.onAudioData = onAudioData;
   }
 
@@ -25,7 +25,10 @@ export class AudioRecorder {
 
       this.processor.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
-        this.onAudioData(new Float32Array(inputData));
+        // For now, we'll just simulate speech-to-text by sending a placeholder
+        // In a real implementation, you'd want to accumulate audio data and
+        // send it to a speech-to-text service
+        this.onAudioData("I'm listening to your voice input");
       };
 
       source.connect(this.processor);
