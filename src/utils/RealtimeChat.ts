@@ -39,14 +39,14 @@ export class RealtimeChat {
       const offer = await this.peerConnection.createOffer();
       await this.peerConnection.setLocalDescription(offer);
 
-      const response = await fetch('https://api.openai.com/v1/audio/speech', {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-4-0125-preview',
+          model: 'gpt-4',
           messages: [
             {
               role: 'system',
@@ -58,11 +58,37 @@ export class RealtimeChat {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to connect to OpenAI');
+        const errorData = await response.json();
+        console.error('OpenAI API error:', errorData);
+        throw new Error(`API error: ${response.status}`);
       }
 
-      const answer = await response.json();
-      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response reader available');
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            if (line === 'data: [DONE]') continue;
+            try {
+              const jsonData = JSON.parse(line.slice(6));
+              const content = jsonData.choices[0]?.delta?.content;
+              if (content) {
+                this.onMessageReceived(content);
+              }
+            } catch (error) {
+              console.error('Error parsing JSON:', error);
+            }
+          }
+        }
+      }
 
     } catch (error) {
       console.error('Error initializing chat:', error);
