@@ -1,130 +1,17 @@
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Mic } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
-import { initializeOpenAI, generateResponse, type ChatMessage } from "@/utils/openai";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { VoiceChat } from "@/components/VoiceChat";
 
 const Index = () => {
-  const [isRecording, setIsRecording] = useState(false);
   const [apiKey, setApiKey] = useState<string>("");
   const [isKeySet, setIsKeySet] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-
-  useEffect(() => {
-    if (isKeySet) {
-      console.log("API Key set, initializing OpenAI");
-      try {
-        initializeOpenAI(apiKey);
-      } catch (error) {
-        console.error('Error initializing OpenAI:', error);
-        toast.error('Failed to initialize OpenAI API');
-        setIsKeySet(false);
-      }
-    }
-  }, [isKeySet, apiKey]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        console.log("Setting up speech recognition");
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = false;
-        recognitionRef.current.interimResults = false;
-
-        recognitionRef.current.onresult = async (event: SpeechRecognitionEvent) => {
-          const text = event.results[0][0].transcript;
-          console.log("Speech recognized:", text);
-          handleNewMessage(text, true);
-        };
-
-        recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
-          console.error('Speech recognition error:', event.error);
-          toast.error('Speech recognition error. Please try again.');
-          setIsRecording(false);
-        };
-
-        recognitionRef.current.onend = () => {
-          console.log("Speech recognition ended");
-          setIsRecording(false);
-        };
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
-  }, [messages]);
 
   const handleApiKeySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (apiKey.trim()) {
-      console.log("Setting API key");
       setIsKeySet(true);
     }
-  };
-
-  const handleNewMessage = async (text: string, isUser: boolean) => {
-    console.log("Handling new message:", { text, isUser });
-    setMessages(prev => [...prev, { text, isUser }]);
-    
-    if (isUser && apiKey) {
-      try {
-        const response = await generateResponse(apiKey, text);
-        console.log("Got response:", response);
-        
-        if (response) {
-          setMessages(prev => [...prev, { text: response, isUser: false }]);
-          
-          const speech = new SpeechSynthesisUtterance(response);
-          window.speechSynthesis.speak(speech);
-        }
-      } catch (error) {
-        console.error('Error in handleNewMessage:', error);
-        toast.error('Failed to generate response');
-      }
-    }
-  };
-
-  const toggleRecording = async () => {
-    if (!isKeySet) {
-      toast.error('Please set your API key first');
-      return;
-    }
-    
-    if (!recognitionRef.current) {
-      toast.error('Speech recognition is not supported in your browser');
-      return;
-    }
-
-    console.log("Toggling recording:", !isRecording);
-
-    if (isRecording) {
-      recognitionRef.current.stop();
-      if (audioStream) {
-        audioStream.getTracks().forEach(track => track.stop());
-        setAudioStream(null);
-      }
-    } else {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        setAudioStream(stream);
-        recognitionRef.current.start();
-        toast.success('Listening...');
-      } catch (error) {
-        console.error('Error accessing microphone:', error);
-        toast.error('Failed to access microphone');
-        return;
-      }
-    }
-    setIsRecording(!isRecording);
   };
 
   if (!isKeySet) {
@@ -149,56 +36,7 @@ const Index = () => {
     );
   }
 
-  return (
-    <div className="flex h-screen flex-col bg-white">
-      <header className="flex h-16 items-center justify-center border-b bg-white shadow-sm">
-        <h1 className="text-xl font-semibold text-gray-900">OpenAI Voice Chat</h1>
-      </header>
-
-      <main className="flex-1 p-4 bg-gray-50">
-        <Card className="h-full">
-          <ScrollArea className="h-[calc(100vh-11rem)] px-4" ref={scrollAreaRef}>
-            <div className="space-y-4 py-4">
-              {messages.map((message, index) => (
-                <div
-                  key={index}
-                  className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-lg p-3 ${
-                      message.isUser
-                        ? 'bg-gray-200 text-gray-900'
-                        : 'bg-blue-100 text-gray-900'
-                    }`}
-                  >
-                    {message.text}
-                  </div>
-                </div>
-              ))}
-              {messages.length === 0 && (
-                <div className="text-center text-gray-500 text-sm">
-                  Start a conversation by clicking the microphone button below
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        </Card>
-      </main>
-
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2">
-        <Button
-          onClick={toggleRecording}
-          className={`h-12 w-12 rounded-full shadow-lg transition-all ${
-            isRecording 
-              ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
-              : 'bg-gray-200 hover:bg-gray-300'
-          }`}
-        >
-          <Mic className={`h-6 w-6 ${isRecording ? 'text-white' : 'text-gray-700'}`} />
-        </Button>
-      </div>
-    </div>
-  );
+  return <VoiceChat apiKey={apiKey} />;
 };
 
 export default Index;
