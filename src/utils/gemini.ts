@@ -25,7 +25,7 @@ export const initializeGemini = (apiKey: string) => {
 
 export const generateResponse = async (model: GenerativeModel, message: string) => {
   try {
-    return await model.generateContent(message);
+    return await model.generateContentStream(message);
   } catch (error) {
     console.error('Error generating response:', error);
     throw error;

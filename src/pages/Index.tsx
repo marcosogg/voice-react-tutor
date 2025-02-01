@@ -71,8 +71,7 @@ const Index = () => {
     
     if (isUser && modelRef.current) {
       try {
-        const response = await generateResponse(modelRef.current, text);
-        const stream = await response.stream();
+        const stream = await generateResponse(modelRef.current, text);
         let fullResponse = '';
         
         for await (const chunk of stream) {
