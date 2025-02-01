@@ -71,14 +71,14 @@ const Index = () => {
     
     if (isUser && modelRef.current) {
       try {
-        const stream = await generateResponse(modelRef.current, text);
+        const response = await generateResponse(modelRef.current, text);
+        const stream = await response.stream();
         let fullResponse = '';
         
         for await (const chunk of stream) {
           fullResponse += chunk.text();
           setMessages(prev => {
             const newMessages = [...prev];
-            // Update or add AI response
             if (prev[prev.length - 1].isUser) {
               newMessages.push({ text: fullResponse, isUser: false });
             } else {
@@ -88,7 +88,6 @@ const Index = () => {
           });
         }
 
-        // Convert final response to speech
         const speech = new SpeechSynthesisUtterance(fullResponse);
         window.speechSynthesis.speak(speech);
       } catch (error) {
