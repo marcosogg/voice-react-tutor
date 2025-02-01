@@ -45,7 +45,7 @@ const Index = () => {
           handleNewMessage(text, true);
         };
 
-        recognitionRef.current.onerror = (event: SpeechRecognitionError) => {
+        recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
           console.error('Speech recognition error:', event.error);
           toast.error('Speech recognition error. Please try again.');
           setIsRecording(false);
