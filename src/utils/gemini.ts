@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
+import { toast } from "sonner";
 
 interface ChatConfig {
   temperature: number;
@@ -15,6 +16,11 @@ const DEFAULT_CONFIG: ChatConfig = {
   candidateCount: 1,
 };
 
+const MAX_RETRIES = 3;
+const BASE_DELAY = 2000; // 2 seconds
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export const initializeGemini = (apiKey: string) => {
   const genAI = new GoogleGenerativeAI(apiKey);
   return genAI.getGenerativeModel({ 
@@ -24,12 +30,34 @@ export const initializeGemini = (apiKey: string) => {
 };
 
 export const generateResponse = async (model: GenerativeModel, message: string) => {
-  try {
-    const result = await model.generateContent(message);
-    const response = await result.response;
-    return response.text();
-  } catch (error) {
-    console.error('Error generating response:', error);
-    throw error;
+  let attempt = 0;
+  
+  while (attempt < MAX_RETRIES) {
+    try {
+      const result = await model.generateContent(message);
+      const response = await result.response;
+      return response.text();
+    } catch (error: any) {
+      attempt++;
+      
+      // Log the error for debugging
+      console.error('Error generating response:', error);
+      
+      if (error.status === 503) {
+        // Model overloaded - implement exponential backoff
+        const delay = Math.min(Math.pow(2, attempt) * BASE_DELAY + Math.random() * 1000, 64000);
+        toast.error("Model is busy. Retrying...");
+        await sleep(delay);
+        continue;
+      }
+      
+      // If we've exhausted our retries or hit a different error, throw
+      if (attempt === MAX_RETRIES) {
+        toast.error("Failed to generate response after multiple attempts");
+      }
+      throw error;
+    }
   }
+  
+  throw new Error("Max retries exceeded");
 };
