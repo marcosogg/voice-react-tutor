@@ -71,10 +71,10 @@ const Index = () => {
     
     if (isUser && modelRef.current) {
       try {
-        const stream = await generateResponse(modelRef.current, text);
+        const result = await generateResponse(modelRef.current, text);
         let fullResponse = '';
         
-        for await (const chunk of stream) {
+        for await (const chunk of result) {
           fullResponse += chunk.text();
           setMessages(prev => {
             const newMessages = [...prev];
