@@ -71,23 +71,10 @@ const Index = () => {
     
     if (isUser && modelRef.current) {
       try {
-        const result = await generateResponse(modelRef.current, text);
-        let fullResponse = '';
+        const response = await generateResponse(modelRef.current, text);
+        setMessages(prev => [...prev, { text: response, isUser: false }]);
         
-        for await (const chunk of result) {
-          fullResponse += chunk.text();
-          setMessages(prev => {
-            const newMessages = [...prev];
-            if (prev[prev.length - 1].isUser) {
-              newMessages.push({ text: fullResponse, isUser: false });
-            } else {
-              newMessages[newMessages.length - 1] = { text: fullResponse, isUser: false };
-            }
-            return newMessages;
-          });
-        }
-
-        const speech = new SpeechSynthesisUtterance(fullResponse);
+        const speech = new SpeechSynthesisUtterance(response);
         window.speechSynthesis.speak(speech);
       } catch (error) {
         toast.error('Failed to generate response');
