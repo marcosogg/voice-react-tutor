@@ -1,18 +1,51 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Mic } from "lucide-react";
 import { useState } from "react";
 
 const Index = () => {
   const [isRecording, setIsRecording] = useState(false);
+  const [apiKey, setApiKey] = useState<string>("");
+  const [isKeySet, setIsKeySet] = useState(false);
+
+  const handleApiKeySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (apiKey.trim()) {
+      setIsKeySet(true);
+    }
+  };
 
   const toggleRecording = () => {
+    if (!isKeySet) return;
     setIsRecording(!isRecording);
   };
 
+  if (!isKeySet) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+        <Card className="w-full max-w-md p-6">
+          <h2 className="mb-4 text-xl font-semibold">Enter Gemini API Key</h2>
+          <form onSubmit={handleApiKeySubmit} className="space-y-4">
+            <Input
+              type="password"
+              placeholder="Enter your Gemini API key"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              className="w-full"
+            />
+            <Button type="submit" className="w-full">
+              Set API Key
+            </Button>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex h-screen flex-col bg-white">
       {/* Header */}
       <header className="h-16 flex items-center justify-center border-b shadow-sm bg-white">
         <h1 className="text-xl font-semibold text-[#1F2937]">Voice Chat Assistant</h1>
