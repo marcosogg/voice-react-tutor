@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Mic } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { initializeGemini, generateResponse, type ChatMessage } from "@/utils/gemini";
+import { initializeOpenAI, generateResponse, type ChatMessage } from "@/utils/openai";
 import { toast } from "sonner";
 
 const Index = () => {
@@ -11,17 +11,17 @@ const Index = () => {
   const [apiKey, setApiKey] = useState<string>("");
   const [isKeySet, setIsKeySet] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const modelRef = useRef<any>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
     if (isKeySet) {
       try {
-        modelRef.current = initializeGemini(apiKey);
+        initializeOpenAI(apiKey);
       } catch (error) {
-        console.error('Error initializing Gemini:', error);
-        toast.error('Failed to initialize Gemini API');
+        console.error('Error initializing OpenAI:', error);
+        toast.error('Failed to initialize OpenAI API');
         setIsKeySet(false);
       }
     }
@@ -69,9 +69,9 @@ const Index = () => {
   const handleNewMessage = async (text: string, isUser: boolean) => {
     setMessages(prev => [...prev, { text, isUser }]);
     
-    if (isUser && modelRef.current) {
+    if (isUser && apiKey) {
       try {
-        const response = await generateResponse(modelRef.current, text);
+        const response = await generateResponse(apiKey, text);
         setMessages(prev => [...prev, { text: response, isUser: false }]);
         
         const speech = new SpeechSynthesisUtterance(response);
@@ -82,7 +82,7 @@ const Index = () => {
     }
   };
 
-  const toggleRecording = () => {
+  const toggleRecording = async () => {
     if (!isKeySet) return;
     
     if (!recognitionRef.current) {
@@ -92,8 +92,20 @@ const Index = () => {
 
     if (isRecording) {
       recognitionRef.current.stop();
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+        setAudioStream(null);
+      }
     } else {
-      recognitionRef.current.start();
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setAudioStream(stream);
+        recognitionRef.current.start();
+      } catch (error) {
+        console.error('Error accessing microphone:', error);
+        toast.error('Failed to access microphone');
+        return;
+      }
     }
     setIsRecording(!isRecording);
   };
@@ -102,11 +114,11 @@ const Index = () => {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
         <Card className="w-full max-w-md p-6">
-          <h2 className="mb-4 text-xl font-semibold">Enter Gemini API Key</h2>
+          <h2 className="mb-4 text-xl font-semibold">Enter OpenAI API Key</h2>
           <form onSubmit={handleApiKeySubmit} className="space-y-4">
             <input
               type="password"
-              placeholder="Enter your Gemini API key"
+              placeholder="Enter your OpenAI API key"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               className="w-full rounded-md border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
@@ -123,7 +135,7 @@ const Index = () => {
   return (
     <div className="flex h-screen flex-col bg-white">
       <header className="flex h-16 items-center justify-center border-b bg-white shadow-sm">
-        <h1 className="text-xl font-semibold text-gray-900">Gemini Voice Chat</h1>
+        <h1 className="text-xl font-semibold text-gray-900">OpenAI Voice Chat</h1>
       </header>
 
       <main className="flex-1 p-4 bg-gray-50">
